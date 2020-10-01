@@ -18,7 +18,7 @@ def PCHA(X, noc, I=None, U=None, delta=0, verbose=False, conv_crit=1E-6, maxiter
     Parameters
     ----------
     X : numpy.2darray
-        Data matrix in which to find archetypes
+        Data matrix in which to find archetypes. Dims x examples
 
     noc : int
         Number of archetypes to find
@@ -33,13 +33,13 @@ def PCHA(X, noc, I=None, U=None, delta=0, verbose=False, conv_crit=1E-6, maxiter
     Output
     ------
     XC : numpy.2darray
-        I x noc feature matrix (i.e. XC=X[:,I]*C forming the archetypes)
+        dims x noc feature matrix (i.e. XC=X[:,I]*C forming the archetypes)
 
     S : numpy.2darray
-        noc x length(U) matrix, S>=0 |S_j|_1=1
+        noc x length(U) matrix, S>=0 |S_j|_1=1, how do the archetypes explain the data
 
     C : numpy.2darray
-        noc x length(U) matrix, S>=0 |S_j|_1=1
+        length(I) x noc matrix, C>=0 |C_i|_1=1, how do the data explain the archetypes
 
     SSE : float
         Sum of Squared Errors
@@ -146,22 +146,34 @@ def PCHA(X, noc, I=None, U=None, delta=0, verbose=False, conv_crit=1E-6, maxiter
     if U is None:
         U = range(M)
 
+    #Sum of squares total
     SST = np.sum(X[:, U] * X[:, U])
 
     # Initialize C
     try:
+        #A random index from 0 to len(I) is supplied as third argument (wrapped in list),
+        # used to initialize the 'furthest sum' algorithm for picking candidate archetypes.
+        # i is the list of candidate archetypes picked. They are chosen to be far away from
+        # each other.
         i = furthest_sum(X[:, I], noc, [int(np.ceil(len(I) * np.random.rand()))])
     except IndexError:
         class InitializationException(Exception): pass
         raise InitializationException("Initialization does not converge. Too few examples in dataset.")
 
     j = range(noc)
+    #len(i) should be the same as noc...
+    #C defines the convex mixture of examples that specifies what the archetypes are;
+    # X[:,I]C gives the archetypes. This initializes C to be 1 for whichever points were
+    # selected as the respective archetypes.
     C = csr_matrix((np.ones(len(i)), (i, j)), shape=(len(I), noc)).todense()
 
+    #XC is the initialization of the archetypes.
     XC = np.dot(X[:, I], C)
 
     muS, muC, mualpha = 1, 1, 1
 
+    #S would specify how the archetypes mix to explain the observations.
+    # U is the subset of observations to explain.
     # Initialise S
     XCtX = np.dot(XC.T, X[:, U])
     CtXtXC = np.dot(XC.T, XC)
